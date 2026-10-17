@@ -1,0 +1,45 @@
+time,kind,object,linked,reason,message,count
+,NodeClaim,ci-ondemand-rbz2s,,Launched,"Status condition transitioned, Type: Launched, Status: Unknown -> True, Reason: Launched",1
+01:34:39 PM,NodeClaim,ci-ondemand-rbz2s,,DisruptionBlocked,Nodeclaim does not have an associated node,1
+01:34:50 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,NodeAllocatableEnforced,Updated Node Allocatable limit across pods,1
+01:34:50 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,Starting,Starting kubelet.,1
+01:34:50 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,InvalidDiskCapacity,invalid capacity 0 on image filesystem,1
+01:34:51 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,NodeHasSufficientPID,Node ip-192-168-193-117.us-east-2.compute.internal status is now: NodeHasSufficientPID,3
+01:34:51 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,NodeHasSufficientMemory,Node ip-192-168-193-117.us-east-2.compute.internal status is now: NodeHasSufficientMemory,3
+01:34:51 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,NodeHasNoDiskPressure,Node ip-192-168-193-117.us-east-2.compute.internal status is now: NodeHasNoDiskPressure,3
+01:34:54 PM,NodeClaim,ci-ondemand-rbz2s,,Registered,"Status condition transitioned, Type: Registered, Status: Unknown -> True, Reason: Registered",1
+01:34:54 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,Synced,Node synced successfully,1
+01:34:54 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,add,,1
+01:34:54 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,taints removed: [karpenter.sh/unregistered],1
+01:34:54 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,taints removed: [node.cloudprovider.kubernetes.io/uninitialized],1
+01:34:55 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,RegisteredNode,Node ip-192-168-193-117.us-east-2.compute.internal event: Registered Node ip-192-168-193-117.us-east-2.compute.internal in Controller,1
+01:34:55 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,,1
+01:35:00 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,DisruptionBlocked,Node isn't initialized,1
+01:35:02 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,Starting,,1
+01:35:09 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,NodeReady,Node ip-192-168-193-117.us-east-2.compute.internal status is now: NodeReady,1
+01:35:09 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,Ready,"Status condition transitioned, Type: Ready, Status: False -> True, Reason: KubeletReady, Message: kubelet is posting ready status",1
+01:35:09 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,Ready: False→True,1
+01:35:09 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,,1
+01:35:10 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,taints removed: [node.kubernetes.io/not-ready],1
+01:35:11 PM,NodeClaim,ci-ondemand-rbz2s,,Initialized,"Status condition transitioned, Type: Initialized, Status: Unknown -> True, Reason: Initialized",1
+01:35:11 PM,NodeClaim,ci-ondemand-rbz2s,,Ready,"Status condition transitioned, Type: Ready, Status: Unknown -> True, Reason: Ready",1
+01:36:40 PM,NodeClaim,ci-ondemand-rbz2s,,DisruptionBlocked,"Pod has ""karpenter.sh/do-not-disrupt"" annotation (Pod=arc-runners/arc-runner-set-fkvcg-runner-cq7vs)",1
+01:36:56 PM,NodeClaim,ci-ondemand-rbz2s,,TerminationGracePeriodExpiring,All pods will be deleted by 2026-10-16T21:36:55Z,1
+01:36:56 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,taints added: [karpenter.sh/disrupted],1
+01:44:43 PM,NodeClaim,ci-ondemand-rbz2s,,DisruptionBlocked,Node is deleting or marked for deletion,4
+01:44:57 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,TerminationGracePeriodExpiring,All pods will be deleted by 2026-10-16T21:36:55Z,5
+01:44:57 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,FailedDraining,"Failed to drain node, 1 pods are waiting to be evicted",5
+01:45:04 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,DisruptionBlocked,Node is deleting or marked for deletion,5
+01:45:36 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,Ready,"Status condition transitioned, Type: Ready, Status: True -> False, Reason: KubeletNotReady, Message: node is shutting down",1
+01:45:36 PM,NodeClaim,ci-ondemand-rbz2s,,Drained,"Status condition transitioned, Type: Drained, Status: Unknown -> True, Reason: Drained",1
+01:45:36 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,NodeNotReady,Node ip-192-168-193-117.us-east-2.compute.internal status is now: NodeNotReady,1
+01:45:36 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,,Shutdown,Shutdown manager detected shutdown event,1
+01:45:36 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,InstanceTerminating,Instance is terminating,1
+01:45:36 PM,NodeClaim,ci-ondemand-rbz2s,,InstanceTerminating,Instance is terminating,1
+01:45:36 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,Ready: True→False,1
+01:45:36 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,taints added: [node.kubernetes.io/not-ready],1
+01:45:41 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,update,,1
+01:46:07 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,DeletingNode,Deleting node ip-192-168-193-117.us-east-2.compute.internal because it does not exist in the cloud provider,1
+01:46:07 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,DeletingNodeFailed,"Failed deleting node ip-192-168-193-117.us-east-2.compute.internal: nodes ""ip-192-168-193-117.us-east-2.compute.internal"" not found",1
+01:46:07 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,delete,,1
+01:46:10 PM,Node,ip-192-168-193-117.us-east-2.compute.internal,nodeclaim/ci-ondemand-rbz2s,RemovingNode,Node ip-192-168-193-117.us-east-2.compute.internal event: Removing Node ip-192-168-193-117.us-east-2.compute.internal from Controller,1

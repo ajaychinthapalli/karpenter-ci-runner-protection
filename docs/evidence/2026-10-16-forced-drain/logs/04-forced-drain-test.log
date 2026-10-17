@@ -1,0 +1,70 @@
+# Forced drain test, 2026-10-16 13:34-13:50 (America/Phoenix)
+# Workflow: disruption-test (10 minutes) on runs-on: arc-runner-set.
+# NodeClaim deleted about 2 minutes into the job (same drain path as expireAfter).
+
+## Cold start: runner pod and NodeClaim
+$ kubectl get pods -n arc-runners -w
+NAME                                READY   STATUS              RESTARTS   AGE
+arc-runner-set-fkvcg-runner-cq7vs   0/1     Pending             0          0s
+arc-runner-set-fkvcg-runner-cq7vs   0/1     Pending             0          19s
+arc-runner-set-fkvcg-runner-cq7vs   0/1     Pending             0          34s
+arc-runner-set-fkvcg-runner-cq7vs   0/1     ContainerCreating   0          34s
+arc-runner-set-fkvcg-runner-cq7vs   1/1     Running             0          51s
+arc-runner-set-fkvcg-runner-cq7vs   1/1     Running             0          117s
+arc-runner-set-fkvcg-runner-cq7vs   0/1     Completed           0          10m
+arc-runner-set-fkvcg-runner-cq7vs   0/1     Terminating         0          11m
+arc-runner-set-fkvcg-runner-cq7vs   0/1     Completed           0          11m
+
+$ kubectl get nodeclaims -w
+NAME                TYPE        CAPACITY    ZONE         NODE                                            READY     AGE
+ci-ondemand-rbz2s                                                                                                  0s
+ci-ondemand-rbz2s                                                                                        Unknown   0s
+ci-ondemand-rbz2s   c6a.large   on-demand   us-east-2c                                                   Unknown   3s
+ci-ondemand-rbz2s   c6a.large   on-demand   us-east-2c   ip-192-168-193-117.us-east-2.compute.internal   Unknown   18s
+ci-ondemand-rbz2s   c6a.large   on-demand   us-east-2c   ip-192-168-193-117.us-east-2.compute.internal   True      35s
+
+## Protection on the pod, then the forced drain
+$ kubectl get pods -n arc-runners -o custom-columns=POD:.metadata.name,NODE:.spec.nodeName,DND:'.metadata.annotations.karpenter\.sh/do-not-disrupt'
+POD                                 NODE                                            DND
+arc-runner-set-fkvcg-runner-cq7vs   ip-192-168-193-117.us-east-2.compute.internal   true
+
+$ kubectl delete nodeclaim ci-ondemand-rbz2s --wait=false
+nodeclaim.karpenter.sh "ci-ondemand-rbz2s" deleted
+
+$ kubectl get nodeclaim ci-ondemand-rbz2s -o jsonpath='{.metadata.deletionTimestamp}'
+2026-10-16T20:36:55Z
+
+$ kubectl get node ip-192-168-193-117.us-east-2.compute.internal -o jsonpath='{range .spec.taints[*]}{.key}={.effect}{"\n"}{end}'
+workload=NoSchedule
+karpenter.sh/disrupted=NoSchedule
+
+$ kubectl get pods -n arc-runners -o wide
+NAME                                READY   STATUS    RESTARTS   AGE     IP               NODE
+arc-runner-set-fkvcg-runner-cq7vs   1/1     Running   0          3m25s   192.168.243.97   ip-192-168-193-117.us-east-2.compute.internal
+
+$ kubectl get events -A --field-selector involvedObject.name=ip-192-168-193-117.us-east-2.compute.internal --sort-by=.lastTimestamp | tail -10
+default     3m10s   Normal    NodeHasSufficientPID             Node ip-192-168-193-117.us-east-2.compute.internal status is now: NodeHasSufficientPID
+default     3m10s   Normal    NodeHasSufficientMemory          Node ip-192-168-193-117.us-east-2.compute.internal status is now: NodeHasSufficientMemory
+default     3m7s    Normal    Synced                           Node synced successfully
+default     3m6s    Normal    RegisteredNode                   Node ip-192-168-193-117.us-east-2.compute.internal event: Registered Node ip-192-168-193-117.us-east-2.compute.internal in Controller
+default     3m1s    Normal    DisruptionBlocked                Node isn't initialized
+default     2m52s   Normal    NodeReady                        Node ip-192-168-193-117.us-east-2.compute.internal status is now: NodeReady
+default     2m52s   Normal    Ready                            Status condition transitioned, Type: Ready, Status: False -> True, Reason: KubeletReady, Message: kubelet is posting ready status
+default     65s     Warning   TerminationGracePeriodExpiring   All pods will be deleted by 2026-10-16T21:36:55Z
+default     65s     Warning   FailedDraining                   Failed to drain node, 1 pods are waiting to be evicted
+default     61s     Normal    DisruptionBlocked                Node is deleting or marked for deletion
+
+## NodeClaim held until the job finished (13:45), then removed
+$ kubectl get nodeclaim ci-ondemand-rbz2s -w
+NAME                TYPE        CAPACITY    ZONE         NODE                                            READY   AGE
+ci-ondemand-rbz2s   c6a.large   on-demand   us-east-2c   ip-192-168-193-117.us-east-2.compute.internal   True    2m20s
+ci-ondemand-rbz2s   c6a.large   on-demand   us-east-2c   ip-192-168-193-117.us-east-2.compute.internal   True    10m
+ci-ondemand-rbz2s   c6a.large   on-demand   us-east-2c   ip-192-168-193-117.us-east-2.compute.internal   True    11m
+
+## Cleanup confirmed
+$ kubectl get nodeclaims
+No resources found
+$ kubectl get nodes -l workload=ci-runner
+No resources found
+$ aws ec2 describe-instances --filters "Name=tag:karpenter.sh/nodepool,Values=ci-ondemand" --query 'Reservations[].Instances[].[InstanceId,State.Name]' --output table
+|  i-007084a522299f95d |  terminated  |

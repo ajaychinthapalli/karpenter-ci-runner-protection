@@ -1,0 +1,21 @@
+name: disruption-test
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: How many minutes the job should run
+        default: "10"
+jobs:
+  long:
+    runs-on: arc-runner-set
+    steps:
+      - name: Report runner
+        run: echo "runner=$RUNNER_NAME"
+      - name: Run for N minutes
+        env:
+          MINUTES: ${{ inputs.minutes }}
+        run: |
+          for i in $(seq 1 "$MINUTES"); do
+            echo "minute $i"
+            sleep 60
+          done

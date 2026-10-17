@@ -1,0 +1,107 @@
+# Karpenter 1.14.1 install on ac-ws-dev-use2, 2026-10-16 13:05-13:14 (America/Phoenix)
+# Account ID masked as <ACCOUNT_ID>.
+
+$ export CLUSTER_NAME=ac-ws-dev-use2 AWS_DEFAULT_REGION=us-east-2 KARPENTER_NAMESPACE=kube-system KARPENTER_VERSION=1.14.1
+$ kubectl version | grep Server
+Server Version: v1.36.4-eks-cfb47f5
+
+# Step 1: CloudFormation (IAM, interruption queue, EventBridge rules)
+$ aws cloudformation deploy --stack-name "Karpenter-${CLUSTER_NAME}" --template-file karpenter-cfn.yaml --capabilities CAPABILITY_NAMED_IAM --parameter-overrides "ClusterName=${CLUSTER_NAME}"
+Waiting for changeset to be created..
+Waiting for stack create/update to complete
+Successfully created/updated stack - Karpenter-ac-ws-dev-use2
+
+$ aws iam get-role --role-name "KarpenterNodeRole-${CLUSTER_NAME}" --query 'Role.Arn' --output text
+arn:aws:iam::<ACCOUNT_ID>:role/KarpenterNodeRole-ac-ws-dev-use2
+$ aws iam get-policy --policy-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerPolicy-${CLUSTER_NAME}"
+aws: [ERROR]: An error occurred (NoSuchEntity) when calling the GetPolicy operation: Policy arn:aws:iam::<ACCOUNT_ID>:policy/KarpenterControllerPolicy-ac-ws-dev-use2 was not found.
+# Expected: recent releases split the controller policy into six (listed next).
+$ aws sqs get-queue-url --queue-name "${CLUSTER_NAME}" --query 'QueueUrl' --output text
+https://sqs.us-east-2.amazonaws.com/<ACCOUNT_ID>/ac-ws-dev-use2
+
+$ aws cloudformation describe-stack-resources --stack-name "Karpenter-${CLUSTER_NAME}" --query "StackResources[?ResourceType=='AWS::IAM::ManagedPolicy'].PhysicalResourceId" --output text
+arn:aws:iam::<ACCOUNT_ID>:policy/KarpenterControllerEKSIntegrationPolicy-ac-ws-dev-use2
+arn:aws:iam::<ACCOUNT_ID>:policy/KarpenterControllerIAMIntegrationPolicy-ac-ws-dev-use2
+arn:aws:iam::<ACCOUNT_ID>:policy/KarpenterControllerInterruptionPolicy-ac-ws-dev-use2
+arn:aws:iam::<ACCOUNT_ID>:policy/KarpenterControllerNodeLifecyclePolicy-ac-ws-dev-use2
+arn:aws:iam::<ACCOUNT_ID>:policy/KarpenterControllerResourceDiscoveryPolicy-ac-ws-dev-use2
+arn:aws:iam::<ACCOUNT_ID>:policy/KarpenterControllerZonalShiftPolicy-ac-ws-dev-use2
+
+# Step 2: access entry for Karpenter nodes
+$ aws eks create-access-entry --cluster-name "$CLUSTER_NAME" --principal-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:role/KarpenterNodeRole-${CLUSTER_NAME}" --type EC2_LINUX
+{
+    "accessEntry": {
+        "clusterName": "ac-ws-dev-use2",
+        "principalArn": "arn:aws:iam::<ACCOUNT_ID>:role/KarpenterNodeRole-ac-ws-dev-use2",
+        "kubernetesGroups": [
+            "system:nodes"
+        ],
+        "createdAt": "2026-10-16T13:08:24.607000-07:00",
+        "username": "system:node:{{EC2PrivateDNSName}}",
+        "type": "EC2_LINUX"
+    }
+}
+
+# Step 3: controller role via EKS Pod Identity
+$ aws eks describe-addon --cluster-name "$CLUSTER_NAME" --addon-name eks-pod-identity-agent
+        "addonName": "eks-pod-identity-agent",
+        "status": "ACTIVE",
+        "addonVersion": "v1.3.10-eksbuild.3",
+$ aws iam create-role --role-name "KarpenterControllerRole-${CLUSTER_NAME}" --assume-role-policy-document file://pod-identity-trust.json
+        "RoleName": "KarpenterControllerRole-ac-ws-dev-use2",
+        "Arn": "arn:aws:iam::<ACCOUNT_ID>:role/KarpenterControllerRole-ac-ws-dev-use2",
+        "CreateDate": "2026-10-16T20:09:56+00:00",
+$ for POLICY_ARN in ...; do aws iam attach-role-policy ...; done
+(no output: success)
+$ aws eks create-pod-identity-association --cluster-name "$CLUSTER_NAME" --namespace kube-system --service-account karpenter --role-arn ...
+        "namespace": "kube-system",
+        "serviceAccount": "karpenter",
+        "roleArn": "arn:aws:iam::<ACCOUNT_ID>:role/KarpenterControllerRole-ac-ws-dev-use2",
+        "associationId": "a-qvde055dbexxkj9uq",
+        "createdAt": "2026-10-16T13:10:00.875000-07:00",
+
+$ aws iam list-attached-role-policies --role-name "KarpenterControllerRole-${CLUSTER_NAME}" --query 'AttachedPolicies[].PolicyName' --output table
+|  KarpenterControllerResourceDiscoveryPolicy-ac-ws-dev-use2  |
+|  KarpenterControllerEKSIntegrationPolicy-ac-ws-dev-use2     |
+|  KarpenterControllerNodeLifecyclePolicy-ac-ws-dev-use2      |
+|  KarpenterControllerInterruptionPolicy-ac-ws-dev-use2       |
+|  KarpenterControllerZonalShiftPolicy-ac-ws-dev-use2         |
+|  KarpenterControllerIAMIntegrationPolicy-ac-ws-dev-use2     |
+
+# Step 4: discovery tags (agents node group subnets + cluster security group)
+$ aws ec2 describe-subnets --filters "Name=tag:karpenter.sh/discovery,Values=${CLUSTER_NAME}" --query 'Subnets[].[SubnetId,AvailabilityZone,MapPublicIpOnLaunch,AvailableIpAddressCount]' --output table
+|  subnet-06e0f0e3e39a0daf7 |  us-east-2c |  True |  16346  |
+|  subnet-05c1dd2f54a01c9da |  us-east-2a |  True |  16370  |
+|  subnet-0f34d1005067eac5c |  us-east-2b |  True |  16347  |
+$ aws ec2 describe-security-groups --filters "Name=tag:karpenter.sh/discovery,Values=${CLUSTER_NAME}" --query 'SecurityGroups[].[GroupId,GroupName]' --output table
+|  sg-0328d65353bee4dc8 |  eks-cluster-sg-ac-ws-dev-use2-1847276777  |
+
+# Step 5: spot service-linked role
+$ aws iam create-service-linked-role --aws-service-name spot.amazonaws.com
+        "RoleName": "AWSServiceRoleForEC2Spot",
+        "CreateDate": "2026-10-16T20:11:43+00:00",
+
+# Step 6: Helm install
+$ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --version "$KARPENTER_VERSION" --namespace "$KARPENTER_NAMESPACE" --set "settings.clusterName=${CLUSTER_NAME}" --set "settings.interruptionQueue=${CLUSTER_NAME}" --set controller.resources.requests.cpu=500m --set controller.resources.requests.memory=512Mi --set controller.resources.limits.cpu=1 --set controller.resources.limits.memory=1Gi --wait
+Release "karpenter" does not exist. Installing it now.
+Pulled: public.ecr.aws/karpenter/karpenter:1.14.1
+Digest: sha256:91434e00fb102d6ee0d1bd34a4457a32fe01a8fa833fe1a2a37da4f50272079b
+NAME: karpenter
+LAST DEPLOYED: Fri Oct 16 13:12:36 2026
+NAMESPACE: kube-system
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+
+# Step 7: health
+$ kubectl get pods -n kube-system -l app.kubernetes.io/name=karpenter -o wide
+NAME                         READY   STATUS    RESTARTS   AGE   IP                NODE
+karpenter-645cb79b75-5vwb8   1/1     Running   0          30s   192.168.134.171   ip-192-168-128-165.us-east-2.compute.internal
+karpenter-645cb79b75-kx4js   1/1     Running   0          30s   192.168.244.56    ip-192-168-251-66.us-east-2.compute.internal
+$ kubectl logs -n kube-system -l app.kubernetes.io/name=karpenter --tail=50 | grep -iE 'error|denied|queue' || echo "no errors"
+no errors
+$ kubectl get crd | grep karpenter
+ec2nodeclasses.karpenter.k8s.aws                   2026-10-16T20:12:35Z
+nodeclaims.karpenter.sh                            2026-10-16T20:12:35Z
+nodeoverlays.karpenter.sh                          2026-10-16T20:12:35Z
+nodepools.karpenter.sh                             2026-10-16T20:12:35Z
