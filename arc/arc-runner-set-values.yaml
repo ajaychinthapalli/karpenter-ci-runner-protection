@@ -1,0 +1,31 @@
+# Values for the gha-runner-scale-set chart (release arc-runner-set, namespace arc-runners).
+# The runner set name stays "arc-runner-set", so workflows keep `runs-on: arc-runner-set`.
+githubConfigUrl: https://github.com/ajaychinthapalli/arc-runners-sandbox
+githubConfigSecret: arc-github-app
+minRunners: 0 # idle runners carry the annotation and would block consolidation
+maxRunners: 3
+template:
+  metadata:
+    annotations:
+      # Blocks consolidation and drift, and holds a draining node until the job ends
+      # (bounded by the NodePool's terminationGracePeriod).
+      karpenter.sh/do-not-disrupt: "true"
+  spec:
+    nodeSelector:
+      workload: ci-runner
+      capacity: ondemand
+    tolerations:
+      - key: workload
+        value: ci-runner
+        effect: NoSchedule
+    terminationGracePeriodSeconds: 60
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            memory: 2Gi

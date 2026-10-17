@@ -1,0 +1,12 @@
+# Default owners for this repository.
+* @ajaychinthapalli
+
+# Platform and infrastructure ownership.
+/karpenter/ @ajaychinthapalli
+/arc/ @ajaychinthapalli
+/iam/ @ajaychinthapalli
+/scripts/ @ajaychinthapalli
+
+# Documentation and operational runbooks.
+/docs/ @ajaychinthapalli
+/README.md @ajaychinthapalli

@@ -1,0 +1,52 @@
+# On-demand pool for long or deploy-critical CI jobs.
+# Runner pods land here via the workload/capacity labels and the workload taint
+# (see arc/arc-runner-set-values.yaml).
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: ci-ondemand
+spec:
+  template:
+    metadata:
+      labels:
+        workload: ci-runner
+        capacity: ondemand
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: ci
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["5"]
+      taints:
+        - key: workload
+          value: ci-runner
+          effect: NoSchedule
+      # Forceful: a node past this age is drained even with protected pods on it.
+      expireAfter: 168h
+      # How long a draining node waits for do-not-disrupt pods before force-deleting them.
+      # Set to p99 job duration + margin once the baseline exists (docs/implementation-guide.md, Step 1).
+      terminationGracePeriod: 1h
+  limits:
+    cpu: "16" # caps spend on the dev cluster; raise deliberately
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 10m
+    budgets:
+      - nodes: "10%"
+      # Uncomment once peak CI hours are known (times are UTC):
+      # - nodes: "0"
+      #   reasons: ["Underutilized", "Drifted"]
+      #   schedule: "0 14 * * mon-fri"
+      #   duration: 10h

@@ -1,0 +1,44 @@
+# Spot pool for short jobs that retry cheaply.
+# Spot interruptions are forceful: do-not-disrupt and terminationGracePeriod do not stop them.
+# Keep long or deploy-critical workflows on ci-ondemand.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: ci-spot
+spec:
+  template:
+    metadata:
+      labels:
+        workload: ci-runner
+        capacity: spot
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: ci
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["5"]
+      taints:
+        - key: workload
+          value: ci-runner
+          effect: NoSchedule
+      expireAfter: 168h
+      terminationGracePeriod: 30m
+  limits:
+    cpu: "16"
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 10m
+    budgets:
+      - nodes: "10%"

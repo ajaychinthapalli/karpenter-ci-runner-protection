@@ -1,0 +1,117 @@
+# Cluster pre-checks on ac-ws-dev-use2, 2026-10-16 (America/Phoenix)
+# Account ID masked as <ACCOUNT_ID>.
+
+$ kubectl get ns
+NAME                STATUS   AGE
+amazon-cloudwatch   Active   25d
+arc-runners         Active   3d14h
+arc-systems         Active   3d14h
+default             Active   26d
+kagent              Active   3d14h
+kube-node-lease     Active   26d
+kube-public         Active   26d
+kube-system         Active   26d
+radar               Active   16d
+
+$ kubectl get deploy -A | grep -i karpenter
+(no output: Karpenter not installed)
+
+$ kubectl get crd | grep -E 'karpenter|eks.amazonaws.com'
+(no output)
+
+$ aws eks describe-cluster --name ac-ws-dev-use2 --query 'cluster.computeConfig'
+null
+
+$ kubectl get nodepools,nodeclaims
+error: the server doesn't have a resource type "nodepools"
+
+$ kubectl get autoscalingrunnersets -n arc-runners
+NAME             MINIMUM RUNNERS   MAXIMUM RUNNERS   CURRENT RUNNERS   STATE   PENDING RUNNERS   RUNNING RUNNERS   FINISHED RUNNERS   DELETING RUNNERS
+arc-runner-set   0                 3                 0                         0
+
+$ helm list -n arc-systems
+NAME NAMESPACE  REVISION UPDATED                             STATUS  CHART                                 APP VERSION
+arc arc-systems 1       2026-10-12 21:45:43.569979 -0700 MST deployed gha-runner-scale-set-controller-0.14.2 0.14.2
+
+$ helm list -n arc-runners
+NAME          NAMESPACE  REVISION UPDATED                             STATUS  CHART                      APP VERSION
+arc-runner-set arc-runners 1       2026-10-12 21:52:13.263257 -0700 MST deployed gha-runner-scale-set-0.14.2 0.14.2
+
+$ kubectl get pods -n amazon-cloudwatch
+NAME                                                              READY   STATUS    RESTARTS      AGE
+amazon-cloudwatch-observability-controller-manager-d48468f2dmf2   1/1     Running   0             11d
+cloudwatch-agent-2hq8x                                            1/1     Running   1 (11d ago)   11d
+cloudwatch-agent-4s4hk                                            1/1     Running   0             25d
+cloudwatch-agent-sjlwt                                            1/1     Running   0             25d
+cloudwatch-agent-x2bnm                                            1/1     Running   0             11d
+cloudwatch-agent-zkcv9                                            1/1     Running   0             25d
+fluent-bit-7rh5k                                                  1/1     Running   0             11d
+fluent-bit-892td                                                  1/1     Running   0             25d
+fluent-bit-czx8q                                                  1/1     Running   0             11d
+fluent-bit-sgks6                                                  1/1     Running   0             25d
+fluent-bit-xtnrq                                                  1/1     Running   0             25d
+
+$ kubectl get pods -n radar
+NAME                     READY   STATUS    RESTARTS   AGE
+radar-5d6ff4df47-vsvvf   1/1     Running   0          16d
+
+$ kubectl get nodes -L eks.amazonaws.com/nodegroup,node.kubernetes.io/instance-type,eks.amazonaws.com/capacityType
+NAME                                            STATUS   ROLES    AGE   VERSION               NODEGROUP   INSTANCE-TYPE   CAPACITYTYPE
+ip-192-168-103-63.us-east-2.compute.internal    Ready    <none>   26d   v1.36.4-eks-a887778               t3.small
+ip-192-168-128-165.us-east-2.compute.internal   Ready    <none>   11d   v1.36.4-eks-3b4a6ca   agents      t3.large        ON_DEMAND
+ip-192-168-144-126.us-east-2.compute.internal   Ready    <none>   26d   v1.36.4-eks-a887778               t3.small
+ip-192-168-233-47.us-east-2.compute.internal    Ready    <none>   26d   v1.36.4-eks-a887778               t3.small
+ip-192-168-251-66.us-east-2.compute.internal    Ready    <none>   11d   v1.36.4-eks-3b4a6ca   agents      t3.large        ON_DEMAND
+
+$ kubectl get deploy -A | grep -i autoscaler
+(no output: no Cluster Autoscaler)
+
+$ aws eks list-nodegroups --cluster-name ac-ws-dev-use2
+{
+    "nodegroups": [
+        "agents"
+    ]
+}
+
+$ kubectl describe nodes | grep -A8 'Allocated resources'      # requests / limits per node
+  cpu                740m (38%)   3 (155%)        memory  745Mi (51%)  3418Mi (238%)
+  cpu                930m (48%)   3500m (181%)    memory  705Mi (9%)   2106Mi (29%)
+  cpu                580m (30%)   1 (51%)         memory  327Mi (22%)  1252Mi (87%)
+  cpu                640m (33%)   1 (51%)         memory  559Mi (38%)  2564Mi (178%)
+  cpu                890m (46%)   5500m (284%)    memory  1345Mi (18%) 4794Mi (67%)
+
+# Owner of the three t3.small nodes (no node group label):
+$ aws ec2 describe-instances --filters "Name=private-dns-name,Values=ip-192-168-103-63.us-east-2.compute.internal" --query 'Reservations[].Instances[].Tags' --output table
+|  aws:cloudformation:logical-id        |  NodeGroup                                                                                                         |
+|  kubernetes.io/cluster/ac-ws-dev-use2 |  owned                                                                                                             |
+|  aws:eks:cluster-name                 |  ac-ws-dev-use2                                                                                                    |
+|  aws:cloudformation:stack-id          |  arn:aws:cloudformation:us-east-2:<ACCOUNT_ID>:stack/ac-ws-dev-use2-ng-stack/9789cf70-b523-11f1-878a-0688813465eb  |
+|  aws:autoscaling:groupName            |  ac-ws-dev-use2-ng-stack-NodeGroup-vaJUzg1wSgCr                                                                    |
+|  aws:cloudformation:stack-name        |  ac-ws-dev-use2-ng-stack                                                                                           |
+|  Name                                 |  ac-ws-dev-use2-ac-ws-dev-use2-ng-Node                                                                             |
+
+$ aws eks describe-cluster --name ac-ws-dev-use2 --query 'cluster.accessConfig.authenticationMode'
+"API_AND_CONFIG_MAP"
+
+# Security groups: self-managed node vs agents node
+|  sg-0d94c1912b444aebe |  ac-ws-dev-use2-ng-stack-NodeSecurityGroup-iQ71fQyFrTQV  |
+|  sg-0328d65353bee4dc8 |  eks-cluster-sg-ac-ws-dev-use2-1847276777  |
+
+$ kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide
+NAME                       READY   STATUS    RESTARTS   AGE   IP                NODE
+coredns-7c6d86668d-6l9nz   1/1     Running   0          26d   192.168.147.108   ip-192-168-144-126.us-east-2.compute.internal
+coredns-7c6d86668d-9ng2p   1/1     Running   0          26d   192.168.219.63    ip-192-168-233-47.us-east-2.compute.internal
+
+$ aws ec2 describe-security-group-rules --filters Name=group-id,Values=sg-0d94c1912b444aebe ... (ingress)
+|  -1 |  -1   |  -1    |  sg-0d94c1912b444aebe  |  None  |
+|  -1 |  -1   |  -1    |  sg-0328d65353bee4dc8  |  None  |
+|  tcp|  1025 |  65535 |  sg-023506155afc253b9  |  None  |
+|  tcp|  443  |  443   |  sg-023506155afc253b9  |  None  |
+
+# DNS from an agents node (cluster security group) to CoreDNS on the self-managed nodes
+$ kubectl run dnstest --rm -it --image=busybox:1.36 --restart=Never --overrides='{"spec":{"nodeSelector":{"eks.amazonaws.com/nodegroup":"agents"}}}' -- nslookup kubernetes.default.svc.cluster.local
+Server: 10.100.0.10
+Address: 10.100.0.10:53
+
+Name: kubernetes.default.svc.cluster.local
+Address: 10.100.0.1

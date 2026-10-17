@@ -1,0 +1,32 @@
+# Optional second runner set for short, retry-safe jobs on spot capacity.
+# Install as a separate release so workflows can choose `runs-on: arc-runner-set-spot`:
+#   helm upgrade --install arc-runner-set-spot \
+#     oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+#     --version 0.14.2 -n arc-runners -f arc/arc-runner-set-spot-values.yaml
+githubConfigUrl: https://github.com/ajaychinthapalli/arc-runners-sandbox
+githubConfigSecret: arc-github-app
+minRunners: 0
+maxRunners: 3
+template:
+  metadata:
+    annotations:
+      karpenter.sh/do-not-disrupt: "true"
+  spec:
+    nodeSelector:
+      workload: ci-runner
+      capacity: spot
+    tolerations:
+      - key: workload
+        value: ci-runner
+        effect: NoSchedule
+    terminationGracePeriodSeconds: 60
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            memory: 2Gi

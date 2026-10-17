@@ -1,0 +1,13 @@
+# Karpenter controller Helm values (chart oci://public.ecr.aws/karpenter/karpenter).
+# settings.clusterName and settings.interruptionQueue are passed by scripts/01-install-karpenter.sh.
+#
+# Requests are sized for the dev cluster: the two replicas fit on the t3.large
+# "agents" nodes, which each have about 1 CPU free.
+controller:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

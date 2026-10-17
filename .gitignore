@@ -1,0 +1,5 @@
+# Evidence snapshots can contain node names, account IDs and log output
+/evidence/
+jobs.csv
+*.local.yaml
+.DS_Store

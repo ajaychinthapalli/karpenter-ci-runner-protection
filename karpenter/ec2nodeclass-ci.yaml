@@ -1,0 +1,19 @@
+# EC2NodeClass shared by both CI NodePools.
+# The AMI is pinned on purpose: a new AMI release would otherwise drift CI nodes mid-day.
+# Bump AMI_VERSION through a reviewed PR (see docs/implementation-guide.md, "Upgrading the AMI").
+#
+# Rendered by scripts/02-apply-ci-pools.sh with envsubst (CLUSTER_NAME, AMI_VERSION).
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: ci
+spec:
+  role: KarpenterNodeRole-${CLUSTER_NAME}
+  amiSelectorTerms:
+    - alias: al2023@${AMI_VERSION}
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${CLUSTER_NAME}
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${CLUSTER_NAME}
